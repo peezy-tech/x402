@@ -2,7 +2,13 @@ import { OnchainKitProvider } from "@coinbase/onchainkit";
 import type { ReactNode } from "react";
 import { base, baseSepolia } from "viem/chains";
 
-import { choosePaymentRequirement, isEvmNetwork } from "./paywallUtils";
+import { createConfig, http } from "wagmi";
+import { arbitrum } from "wagmi/chains";
+import { WagmiProvider } from "wagmi";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+const queryClient = new QueryClient();
+
+import { choosePaymentRequirement, isEvmNetwork, isHyperliquidNetwork } from "./paywallUtils";
 import "./window.d.ts";
 
 type ProvidersProps = {
@@ -20,34 +26,54 @@ export function Providers({ children }: ProvidersProps) {
   const { testnet = true, cdpClientKey, appName, appLogo, paymentRequirements } = window.x402;
   const selectedRequirement = choosePaymentRequirement(paymentRequirements, testnet);
 
-  if (!isEvmNetwork(selectedRequirement.network)) {
+  if (
+    !isEvmNetwork(selectedRequirement.network) &&
+    !isHyperliquidNetwork(selectedRequirement.network)
+  ) {
     return <>{children}</>;
   }
 
-  const chain = selectedRequirement.network === "base-sepolia" ? baseSepolia : base;
+  if (isEvmNetwork(selectedRequirement.network)) {
+    const chain = selectedRequirement.network === "base-sepolia" ? baseSepolia : base;
+
+    return (
+      <OnchainKitProvider
+        apiKey={cdpClientKey || undefined}
+        chain={chain}
+        config={{
+          appearance: {
+            mode: "light",
+            theme: "base",
+            name: appName || undefined,
+            logo: appLogo || undefined,
+          },
+          wallet: {
+            display: "modal",
+            supportedWallets: {
+              rabby: true,
+              trust: true,
+              frame: true,
+            },
+          },
+        }}
+      >
+        {children}
+      </OnchainKitProvider>
+    );
+  }
+
+  const chain = arbitrum;
+
+  const config = createConfig({
+    chains: [arbitrum],
+    transports: {
+      [arbitrum.id]: http(),
+    },
+  });
 
   return (
-    <OnchainKitProvider
-      apiKey={cdpClientKey || undefined}
-      chain={chain}
-      config={{
-        appearance: {
-          mode: "light",
-          theme: "base",
-          name: appName || undefined,
-          logo: appLogo || undefined,
-        },
-        wallet: {
-          display: "modal",
-          supportedWallets: {
-            rabby: true,
-            trust: true,
-            frame: true,
-          },
-        },
-      }}
-    >
-      {children}
-    </OnchainKitProvider>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </WagmiProvider>
   );
 }

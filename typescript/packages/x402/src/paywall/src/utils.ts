@@ -43,7 +43,12 @@ export function ensureValidAmount(paymentRequirements: PaymentRequirements): Pay
 
   if (window.x402?.amount) {
     try {
-      const amountInBaseUnits = Math.round(window.x402.amount * 1_000_000);
+      const decimals =
+        typeof updatedRequirements.extra?.decimals === "number"
+          ? updatedRequirements.extra.decimals
+          : 6;
+      const divisor = 10 ** decimals;
+      const amountInBaseUnits = Math.round(window.x402.amount * divisor);
       updatedRequirements.maxAmountRequired = amountInBaseUnits.toString();
     } catch (error) {
       console.error("Failed to parse amount:", error);

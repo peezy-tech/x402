@@ -1,6 +1,6 @@
-import { paymentDetailsSchema, PaymentDetails } from "x402-legacy/types";
-import { settle } from "x402-legacy/facilitator";
-import { evm } from "x402-legacy/shared";
+import { paymentDetailsSchema, PaymentDetails } from "@peezy.tech/x402-legacy/types";
+import { settle } from "@peezy.tech/x402-legacy/facilitator";
+import { evm } from "@peezy.tech/x402-legacy/shared";
 import { Hex } from "viem";
 
 /**

@@ -5,6 +5,7 @@ import {
   choosePaymentRequirement,
   getNetworkDisplayName,
   isEvmNetwork,
+  isHyperliquidNetwork,
   isSvmNetwork,
   normalizePaymentRequirements,
 } from "./paywallUtils";
@@ -46,6 +47,19 @@ const solanaRequirement: PaymentRequirements = {
   },
 };
 
+const hyperliquidRequirement: PaymentRequirements = {
+  scheme: "exact",
+  network: "hyperliquid",
+  maxAmountRequired: "1000",
+  resource: "https://example.com/hyperliquid",
+  description: "Hyperliquid resource",
+  mimeType: "application/json",
+  payTo: "0x0000000000000000000000000000000000000004",
+  maxTimeoutSeconds: 300,
+  asset: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+  extra: { decimals: 6 },
+};
+
 describe("paywallUtils", () => {
   it("normalizes single payment requirement into an array", () => {
     const normalized = normalizePaymentRequirements(baseRequirement);
@@ -54,13 +68,25 @@ describe("paywallUtils", () => {
   });
 
   it("selects first available payment from preferred networks on mainnet", () => {
-    const selected = choosePaymentRequirement([baseRequirement, solanaRequirement], false);
-    expect(["base", "solana"]).toContain(selected.network);
+    const selected = choosePaymentRequirement(
+      [baseRequirement, solanaRequirement, hyperliquidRequirement],
+      false,
+    );
+    expect(["base", "solana", "hyperliquid"]).toContain(selected.network);
   });
 
   it("selects first available payment from preferred networks on testnet", () => {
-    const selected = choosePaymentRequirement([baseSepoliaRequirement, solanaRequirement], true);
-    expect(["base-sepolia", "solana-devnet"]).toContain(selected.network);
+    const selected = choosePaymentRequirement(
+      [
+        baseSepoliaRequirement,
+        solanaRequirement,
+        { ...hyperliquidRequirement, network: "hyperliquid-testnet" },
+      ],
+      true,
+    );
+    expect(["base-sepolia", "solana-devnet", "hyperliquid-testnet"]).toContain(
+      selected.network,
+    );
   });
 
   it("falls back to solana when no evm networks exist", () => {
@@ -71,6 +97,7 @@ describe("paywallUtils", () => {
   it("returns display names for known networks", () => {
     expect(getNetworkDisplayName("base")).toBe("Base");
     expect(getNetworkDisplayName("solana-devnet")).toBe("Solana Devnet");
+    expect(getNetworkDisplayName("hyperliquid")).toBe("Hyperliquid");
   });
 
   it("identifies supported network families", () => {
@@ -78,5 +105,7 @@ describe("paywallUtils", () => {
     expect(isEvmNetwork("solana")).toBe(false);
     expect(isSvmNetwork("solana")).toBe(true);
     expect(isSvmNetwork("base")).toBe(false);
+    expect(isHyperliquidNetwork("hyperliquid")).toBe(true);
+    expect(isHyperliquidNetwork("base")).toBe(false);
   });
 });

@@ -18,6 +18,8 @@ export const NetworkSchema = z.enum([
   "story",
   "educhain",
   "skale-base-sepolia",
+  "hyperliquid-testnet",
+  "hyperliquid",
 ]);
 export type Network = z.infer<typeof NetworkSchema>;
 
@@ -62,6 +64,14 @@ export const SupportedSVMNetworks: Network[] = ["solana-devnet", "solana"];
 export const SvmNetworkToChainId = new Map<Network, number>([
   ["solana-devnet", 103],
   ["solana", 101],
+]);
+
+// hyperliquid
+export const SupportedHLNetworks: Network[] = ["hyperliquid-testnet", "hyperliquid"];
+export type HyperliquidChainName = "Mainnet" | "Testnet";
+export const HlNetworkToChainName = new Map<Network, HyperliquidChainName>([
+  ["hyperliquid-testnet", "Testnet"],
+  ["hyperliquid", "Mainnet"],
 ]);
 
 export const ChainIdToNetwork = Object.fromEntries(

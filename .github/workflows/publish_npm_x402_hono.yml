@@ -23,17 +23,17 @@ jobs:
         working-directory: ./typescript
         run: |
           pnpm install --frozen-lockfile
-          pnpm -r --filter=x402 --filter=x402-hono run build
-          
+          pnpm -r --filter=@peezy.tech/x402 --filter=@peezy.tech/x402-hono run build
+
       - name: Publish x402-hono package
         working-directory: ./typescript/packages/x402-hono
         run: |
           # Get package information directly
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          
+
           echo "Package: $PACKAGE_NAME@$PACKAGE_VERSION"
-          
+
           # Check if running on main branch
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "Publishing to NPM (main branch)"
@@ -43,4 +43,4 @@ jobs:
             pnpm publish --dry-run --no-git-checks
           fi
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

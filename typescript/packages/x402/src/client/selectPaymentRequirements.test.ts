@@ -166,4 +166,14 @@ describe("selectPaymentRequirements", () => {
     expect(selected.network).toBe("solana");
     expect(selected.asset).toBe(solanaUsdc);
   });
+
+  it("handles Hyperliquid networks without requiring USDC metadata", () => {
+    const reqs: PaymentRequirements[] = [
+      makeRequirement("hyperliquid", "USDC:0xeb62eee3685fc4c43992febcd9e75443"),
+    ];
+
+    const selected = selectPaymentRequirements(reqs);
+    expect(selected.network).toBe("hyperliquid");
+    expect(selected.asset).toBe("USDC:0xeb62eee3685fc4c43992febcd9e75443");
+  });
 });

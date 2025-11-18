@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { generateKeyPairSigner, type TransactionSigner } from "@solana/kit";
+import { privateKeyToAccount } from "viem/accounts";
 import { createPaymentHeader } from "./createPaymentHeader";
 import { PaymentRequirements } from "../types/verify";
 import * as exactSvmClient from "../schemes/exact/svm/client";
+import * as exactHlClient from "../schemes/exact/hyperliquid/client";
 
 vi.mock("../schemes/exact/svm/client", () => ({
+  createPaymentHeader: vi.fn(),
+}));
+
+vi.mock("../schemes/exact/hyperliquid/client", () => ({
   createPaymentHeader: vi.fn(),
 }));
 
@@ -84,5 +90,35 @@ describe("createPaymentHeader", () => {
         config,
       );
     });
+  });
+
+  it("delegates Hyperliquid requirements to the Hyperliquid client", async () => {
+    const account = privateKeyToAccount(
+      "0x7c852118294d6100f8b5d2cb8666f8c01708d3b59a38ff0533c01066c8fada33",
+    );
+    const hyperliquidRequirements: PaymentRequirements = {
+      scheme: "exact",
+      network: "hyperliquid",
+      payTo: account.address,
+      asset: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+      maxAmountRequired: "1000",
+      resource: "http://example.com/resource",
+      description: "Test description",
+      mimeType: "text/plain",
+      maxTimeoutSeconds: 60,
+      extra: {
+        decimals: 6,
+      },
+    };
+
+    vi.mocked(exactHlClient.createPaymentHeader).mockResolvedValue("hl_header");
+
+    await createPaymentHeader(account, 1, hyperliquidRequirements);
+
+    expect(exactHlClient.createPaymentHeader).toHaveBeenCalledWith(
+      account,
+      1,
+      hyperliquidRequirements,
+    );
   });
 });

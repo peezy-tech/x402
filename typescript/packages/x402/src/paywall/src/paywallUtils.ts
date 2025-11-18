@@ -1,9 +1,15 @@
 import { selectPaymentRequirements } from "../../client";
 import type { PaymentRequirements } from "../../types/verify";
-import { Network, SupportedEVMNetworks, SupportedSVMNetworks } from "../../types/shared";
+import {
+  Network,
+  SupportedEVMNetworks,
+  SupportedSVMNetworks,
+  SupportedHLNetworks,
+} from "../../types/shared";
 
 const EVM_TESTNETS = new Set<Network>(["base-sepolia"]);
 const SVM_TESTNETS = new Set<Network>(["solana-devnet"]);
+const HL_TESTNETS = new Set<Network>(["hyperliquid-testnet"]);
 
 /**
  * Normalizes the payment requirements into an array.
@@ -28,9 +34,9 @@ export function normalizePaymentRequirements(
  */
 export function getPreferredNetworks(testnet: boolean): Network[] {
   if (testnet) {
-    return ["base-sepolia", "solana-devnet"];
+    return ["base-sepolia", "solana-devnet", "hyperliquid-testnet"];
   }
-  return ["base", "solana"];
+  return ["base", "solana", "hyperliquid"];
 }
 
 /**
@@ -71,6 +77,16 @@ export function isSvmNetwork(network: string): network is Network {
 }
 
 /**
+ * Determines if the provided network is a Hyperliquid network.
+ *
+ * @param network - The network to check.
+ * @returns True if the network is Hyperliquid based.
+ */
+export function isHyperliquidNetwork(network: string): network is Network {
+  return SupportedHLNetworks.includes(network as Network);
+}
+
+/**
  * Provides a human-readable display name for a network.
  *
  * @param network - The network identifier.
@@ -86,6 +102,10 @@ export function getNetworkDisplayName(network: Network): string {
       return "Solana";
     case "solana-devnet":
       return "Solana Devnet";
+    case "hyperliquid":
+      return "Hyperliquid";
+    case "hyperliquid-testnet":
+      return "Hyperliquid Testnet";
     default:
       return network;
   }
@@ -98,5 +118,5 @@ export function getNetworkDisplayName(network: Network): string {
  * @returns True if the network is a recognized testnet.
  */
 export function isTestnetNetwork(network: Network): boolean {
-  return EVM_TESTNETS.has(network) || SVM_TESTNETS.has(network);
+  return EVM_TESTNETS.has(network) || SVM_TESTNETS.has(network) || HL_TESTNETS.has(network);
 }

@@ -12,34 +12,34 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
         with:
           version: 10.7.0
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
           cache: "pnpm"
           cache-dependency-path: ./typescript
-      
+
       - name: Install and build
         working-directory: ./typescript
         run: |
           pnpm install --frozen-lockfile
-          pnpm -r --filter=x402 --filter=x402-fetch run build
-      
+          pnpm -r --filter=@peezy.tech/x402 --filter=@peezy.tech/x402-fetch run build
+
       - name: Publish x402-fetch package
         working-directory: ./typescript/packages/x402-fetch
         run: |
           # Get package information directly
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          
+
           echo "Package: $PACKAGE_NAME@$PACKAGE_VERSION"
-          
+
           # Check if running on main branch
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "Publishing to NPM (main branch)"
@@ -49,4 +49,4 @@ jobs:
             pnpm publish --dry-run --no-git-checks
           fi
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} 
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

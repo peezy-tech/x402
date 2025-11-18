@@ -55,7 +55,17 @@ export interface SPLTokenAmount {
   };
 }
 
-export type Price = Money | ERC20TokenAmount | SPLTokenAmount;
+export interface HyperliquidTokenAmount {
+  amount: string | number;
+  asset: {
+    tokenId: string;
+    decimals?: number;
+    symbol?: string;
+    name?: string;
+  };
+}
+
+export type Price = Money | ERC20TokenAmount | SPLTokenAmount | HyperliquidTokenAmount;
 
 export interface RouteConfig {
   price: Price;

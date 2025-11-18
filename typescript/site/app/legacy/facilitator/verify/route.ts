@@ -1,6 +1,6 @@
-import { paymentDetailsSchema, PaymentDetails } from "x402-legacy/types";
-import { verify } from "x402-legacy/facilitator";
-import { evm } from "x402-legacy/shared";
+import { paymentDetailsSchema, PaymentDetails } from "@peezy.tech/x402-legacy/types";
+import { verify } from "@peezy.tech/x402-legacy/facilitator";
+import { evm } from "@peezy.tech/x402-legacy/shared";
 
 /**
  * Request body for the legacy verify endpoint

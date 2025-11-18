@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { encodePayment, decodePayment } from "./paymentUtils";
-import { PaymentPayload, ExactEvmPayload, ExactSvmPayload } from "../../../../types/verify";
-import { SupportedEVMNetworks, SupportedSVMNetworks } from "../../../../types";
+import { PaymentPayload, ExactEvmPayload, ExactSvmPayload, ExactHlPayload } from "../../../../types/verify";
+import { SupportedEVMNetworks, SupportedSVMNetworks, SupportedHLNetworks } from "../../../../types";
 
 // valid exact EVM payload
 const validEvmPayload: ExactEvmPayload = {
@@ -19,6 +19,7 @@ const validEvmPayload: ExactEvmPayload = {
 // valid evm payment payload
 const defaultEvmNetwork = SupportedEVMNetworks[0] as (typeof SupportedEVMNetworks)[number];
 const defaultSvmNetwork = SupportedSVMNetworks[0] as (typeof SupportedSVMNetworks)[number];
+const defaultHlNetwork = SupportedHLNetworks[0] as (typeof SupportedHLNetworks)[number];
 
 const validEvmPayment: PaymentPayload = {
   x402Version: 1,
@@ -40,6 +41,25 @@ const validSvmPayment: PaymentPayload = {
   payload: validSvmPayload,
 };
 
+const validHlPayload: ExactHlPayload = {
+  action: {
+    destination: "0x1111111111111111111111111111111111111111",
+    token: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+    amount: "1.25",
+    time: Date.now(),
+  },
+  signature: "0x" + "c".repeat(130),
+  nonce: 1,
+  user: "0x1111111111111111111111111111111111111111",
+};
+
+const validHlPayment: PaymentPayload = {
+  x402Version: 1,
+  scheme: "exact",
+  network: defaultHlNetwork,
+  payload: validHlPayload,
+};
+
 describe("paymentUtils", () => {
   it("encodes and decodes EVM payment payloads (roundtrip)", () => {
     const encoded = encodePayment(validEvmPayment);
@@ -51,6 +71,12 @@ describe("paymentUtils", () => {
     const encoded = encodePayment(validSvmPayment);
     const decoded = decodePayment(encoded);
     expect(decoded).toEqual(validSvmPayment);
+  });
+
+  it("encodes and decodes Hyperliquid payment payloads (roundtrip)", () => {
+    const encoded = encodePayment(validHlPayment);
+    const decoded = decodePayment(encoded);
+    expect(decoded).toEqual(validHlPayment);
   });
 
   it("throws on invalid network in encodePayment", () => {

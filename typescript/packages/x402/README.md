@@ -58,3 +58,60 @@ For implementation examples, we recommend reviewing our official client packages
 - [x402-fetch implementation](https://github.com/coinbase/x402/blob/main/typescript/packages/x402-fetch/src/index.ts)
 - [x402-axios implementation](https://github.com/coinbase/x402/blob/main/typescript/packages/x402-axios/src/index.ts)
 
+## Hyperliquid L1 Support
+
+The `exact` scheme now supports Hyperliquid networks (`hyperliquid`, `hyperliquid-testnet`) using token identifiers formatted as `SYMBOL:0x...`. Assets typically require the token's decimal precision (for example, 6 for USDC) so the facilitator can convert on-chain atomic amounts to the decimal strings Hyperliquid expects.
+
+### Creating a Hyperliquid payment header
+
+```ts
+import { privateKeyToAccount } from "viem/accounts";
+import { hyperliquid } from "x402/schemes/exact";
+
+const wallet = privateKeyToAccount("0x...");
+const paymentHeader = await hyperliquid.createPaymentHeader(wallet, 1, {
+  scheme: "exact",
+  network: "hyperliquid",
+  maxAmountRequired: "1000000", // 1 USDC with 6 decimals
+  resource: "https://example.com/protected",
+  description: "Pay to access resource",
+  mimeType: "application/json",
+  payTo: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  maxTimeoutSeconds: 300,
+  asset: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+  extra: {
+    decimals: 6,
+    signatureChainId: "0x66eee",
+  },
+});
+// Send paymentHeader as the value of the X-PAYMENT header.
+```
+
+### Facilitator verification and settlement
+
+```ts
+import { verify, settle } from "x402/facilitator";
+
+const paymentRequirements = {
+  scheme: "exact",
+  network: "hyperliquid",
+  maxAmountRequired: "1000000",
+  resource: "https://example.com/protected",
+  description: "Pay to access resource",
+  mimeType: "application/json",
+  payTo: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  maxTimeoutSeconds: 300,
+  asset: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+  extra: { decimals: 6 },
+};
+
+const verification = await verify(undefined, paymentPayload, paymentRequirements);
+if (!verification.isValid) {
+  throw new Error(verification.invalidReason ?? "invalid_payment");
+}
+
+const settlement = await settle(undefined, paymentPayload, paymentRequirements);
+if (!settlement.success) {
+  throw new Error(settlement.errorReason ?? "hl_exchange_error");
+}
+```

@@ -2,15 +2,16 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { Address, getAddress } from "viem";
 import type { Address as SolanaAddress } from "@solana/kit";
-import { exact } from "x402/schemes";
+import { exact } from "@peezy.tech/x402/schemes";
 import {
   computeRoutePatterns,
   findMatchingPaymentRequirements,
   findMatchingRoute,
   processPriceToAtomicAmount,
   toJsonSafe,
-} from "x402/shared";
-import { getPaywallHtml } from "x402/paywall";
+  hyperliquid as hyperliquidShared,
+} from "@peezy.tech/x402/shared";
+import { getPaywallHtml } from "@peezy.tech/x402/paywall";
 import {
   FacilitatorConfig,
   moneySchema,
@@ -22,9 +23,10 @@ import {
   ERC20TokenAmount,
   SupportedEVMNetworks,
   SupportedSVMNetworks,
-} from "x402/types";
-import { useFacilitator } from "x402/verify";
-import { safeBase64Encode } from "x402/shared";
+  SupportedHLNetworks,
+} from "@peezy.tech/x402/types";
+import { useFacilitator } from "@peezy.tech/x402/verify";
+import { safeBase64Encode } from "@peezy.tech/x402/shared";
 
 import { POST } from "./api/session-token";
 
@@ -126,7 +128,7 @@ export function paymentMiddleware(
       discoverable,
     } = config;
 
-    const atomicAmountForAsset = processPriceToAtomicAmount(price, network);
+    const atomicAmountForAsset = await processPriceToAtomicAmount(price, network);
     if ("error" in atomicAmountForAsset) {
       return new NextResponse(atomicAmountForAsset.error, { status: 500 });
     }
@@ -207,6 +209,34 @@ export function paymentMiddleware(
           feePayer,
         },
       });
+    }
+    // hyperliquid networks
+    else if (SupportedHLNetworks.includes(network)) {
+      paymentRequirements.push({
+        scheme: "exact",
+        network,
+        maxAmountRequired,
+        resource: resourceUrl,
+        description: description ?? "",
+        mimeType: mimeType ?? "application/json",
+        payTo: getAddress(payTo),
+        maxTimeoutSeconds: maxTimeoutSeconds ?? 300,
+        asset: asset.address,
+        outputSchema: {
+          input: {
+            type: "http",
+            method,
+            discoverable: discoverable ?? true,
+            ...inputSchema,
+          },
+          output: outputSchema,
+        },
+        extra: {
+          decimals: asset.decimals,
+          tokenSymbol: (asset as any).symbol,
+          signatureChainId: hyperliquidShared.getHyperliquidSignatureChainId(network),
+        },
+      });
     } else {
       throw new Error(`Unsupported network: ${network}`);
     }
@@ -218,17 +248,8 @@ export function paymentMiddleware(
       if (accept?.includes("text/html")) {
         const userAgent = request.headers.get("User-Agent");
         if (userAgent?.includes("Mozilla")) {
-          let displayAmount: number;
-          if (typeof price === "string" || typeof price === "number") {
-            const parsed = moneySchema.safeParse(price);
-            if (parsed.success) {
-              displayAmount = parsed.data;
-            } else {
-              displayAmount = Number.NaN;
-            }
-          } else {
-            displayAmount = Number(price.amount) / 10 ** price.asset.decimals;
-          }
+          const inferredDecimals = asset.decimals ?? 6;
+          const displayAmount = Number(maxAmountRequired) / 10 ** inferredDecimals;
 
           // TODO: handle paywall html for solana
           const html =
@@ -358,7 +379,7 @@ export type {
   Resource,
   RouteConfig,
   RoutesConfig,
-} from "x402/types";
+} from "@peezy.tech/x402/types";
 export type { Address as SolanaAddress } from "@solana/kit";
 
 // Export session token API handlers for Onramp

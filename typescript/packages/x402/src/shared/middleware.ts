@@ -1,19 +1,10 @@
 import { Address, Hex } from "viem";
-import {
-  moneySchema,
-  Network,
-  Price,
-  RouteConfig,
-  RoutePattern,
-  ERC20TokenAmount,
-  PaymentRequirements,
-  PaymentPayload,
-  SPLTokenAmount,
-} from "../types";
+import { moneySchema, Network, Price, RouteConfig, RoutePattern, ERC20TokenAmount, PaymentRequirements, PaymentPayload, SPLTokenAmount, SupportedHLNetworks, HyperliquidTokenAmount } from "../types";
 import { RoutesConfig } from "../types";
 import { safeBase64Decode } from "./base64";
 import { getUsdcChainConfigForChain } from "./evm";
 import { getNetworkId } from "./network";
+import { fetchHyperliquidTokenInfo, getDefaultHyperliquidAsset } from "./hyperliquid";
 
 /**
  * Computes the route patterns for the given routes config
@@ -121,7 +112,12 @@ export function findMatchingRoute(
  * @param network - The network to get the default asset for
  * @returns The default asset
  */
-export function getDefaultAsset(network: Network) {
+export function getDefaultAsset(
+  network: Network,
+): ERC20TokenAmount["asset"] | SPLTokenAmount["asset"] {
+  if (SupportedHLNetworks.includes(network)) {
+    return getDefaultHyperliquidAsset(network);
+  }
   const chainId = getNetworkId(network);
   const usdc = getUsdcChainConfigForChain(chainId);
   if (!usdc) {
@@ -144,12 +140,13 @@ export function getDefaultAsset(network: Network) {
  * @param network - The network to get the default asset for
  * @returns The parsed amount or an error message
  */
-export function processPriceToAtomicAmount(
+export async function processPriceToAtomicAmount(
   price: Price,
   network: Network,
-):
+): Promise<
   | { maxAmountRequired: string; asset: ERC20TokenAmount["asset"] | SPLTokenAmount["asset"] }
-  | { error: string } {
+  | { error: string }
+> {
   // Handle USDC amount (string) or token amount (ERC20TokenAmount)
   let maxAmountRequired: string;
   let asset: ERC20TokenAmount["asset"] | SPLTokenAmount["asset"];
@@ -166,9 +163,38 @@ export function processPriceToAtomicAmount(
     asset = getDefaultAsset(network);
     maxAmountRequired = (parsedUsdAmount * 10 ** asset.decimals).toString();
   } else {
-    // Token amount in atomic units
-    maxAmountRequired = price.amount;
-    asset = price.asset;
+    if (isHyperliquidTokenAmount(price, network)) {
+      const tokenId = price.asset.tokenId ?? (price.asset as any).address;
+      if (!tokenId) {
+        return { error: "Hyperliquid tokenId is required for Hyperliquid prices" };
+      }
+      const { decimals: maybeDecimals, symbol, name } = price.asset;
+      let resolvedDecimals = maybeDecimals;
+      let resolvedSymbol = symbol;
+      let resolvedName = name;
+
+      if (resolvedDecimals == null) {
+        const fetched = await fetchHyperliquidTokenInfo(network, tokenId);
+        resolvedDecimals = fetched.decimals;
+        resolvedSymbol = resolvedSymbol ?? fetched.symbol;
+        resolvedName = resolvedName ?? fetched.name;
+      }
+
+      if (resolvedDecimals == null) {
+        return { error: `Unable to resolve decimals for Hyperliquid token ${tokenId}` };
+      }
+
+      const symbolForDisplay = symbol ?? resolvedSymbol ?? resolvedName ?? tokenId;
+      const formattedToken = `${symbolForDisplay}:${tokenId}`;
+      asset = { address: formattedToken, decimals: resolvedDecimals };
+      maxAmountRequired = decimalToAtomic(price.amount, resolvedDecimals).toString();
+      (asset as any).symbol = symbolForDisplay;
+      (asset as any).tokenId = tokenId;
+    } else {
+      // Token amount in atomic units
+      maxAmountRequired = price.amount;
+      asset = price.asset;
+    }
   }
 
   return {
@@ -207,4 +233,33 @@ export function decodeXPaymentResponse(header: string) {
     network: Network;
     payer: Address;
   };
+}
+
+function isHyperliquidTokenAmount(price: Price, network: Network): price is HyperliquidTokenAmount {
+  return (
+    SupportedHLNetworks.includes(network) &&
+    typeof price === "object" &&
+    price !== null &&
+    "asset" in price &&
+    (typeof (price as HyperliquidTokenAmount).asset?.tokenId === "string" ||
+      typeof (price as any).asset?.address === "string")
+  );
+}
+
+function decimalToAtomic(value: string | number, decimals: number): bigint {
+  const sanitized = String(value).trim();
+  if (!/^-?\d+(\.\d+)?$/.test(sanitized)) {
+    throw new Error("invalid decimal");
+  }
+  const isNegative = sanitized.startsWith("-");
+  const absolute = isNegative ? sanitized.slice(1) : sanitized;
+  const [whole, fraction = ""] = absolute.split(".");
+  const normalizedFraction =
+    fraction.length > decimals
+      ? fraction.slice(0, decimals)
+      : fraction.padEnd(decimals, "0");
+  const wholeUnits = BigInt(whole || "0") * 10n ** BigInt(decimals);
+  const fractionalUnits = BigInt(normalizedFraction || "0");
+  const result = wholeUnits + fractionalUnits;
+  return isNegative ? -result : result;
 }

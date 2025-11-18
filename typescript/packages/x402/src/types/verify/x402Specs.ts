@@ -7,6 +7,7 @@ import { Base64EncodedRegex } from "../../shared/base64";
 const EvmMaxAtomicUnits = 18;
 const EvmAddressRegex = /^0x[0-9a-fA-F]{40}$/;
 const MixedAddressRegex = /^0x[a-fA-F0-9]{40}|[A-Za-z0-9][A-Za-z0-9-]{0,34}[A-Za-z0-9]$/;
+const HyperliquidTokenIdRegex = /^[A-Za-z0-9]+:0x[0-9a-fA-F]{32,40}$/;
 const HexEncoded64ByteRegex = /^0x[0-9a-fA-F]{64}$/;
 const EvmSignatureRegex = /^0x[0-9a-fA-F]+$/; // Flexible hex signature validation
 // Enums
@@ -38,6 +39,12 @@ export const ErrorReasons = [
   "invalid_exact_svm_payload_transaction_sender_ata_not_found",
   "invalid_exact_svm_payload_transaction_simulation_failed",
   "invalid_exact_svm_payload_transaction_transfer_to_incorrect_ata",
+  "invalid_exact_hl_payload",
+  "invalid_exact_hl_payload_signature",
+  "invalid_exact_hl_payload_asset_mismatch",
+  "invalid_exact_hl_payload_recipient_mismatch",
+  "invalid_exact_hl_payload_amount_mismatch",
+  "invalid_exact_hl_network",
   "invalid_network",
   "invalid_payload",
   "invalid_payment_requirements",
@@ -50,6 +57,9 @@ export const ErrorReasons = [
   "invalid_x402_version",
   "settle_exact_svm_block_height_exceeded",
   "settle_exact_svm_transaction_confirmation_timed_out",
+  "hl_exchange_error",
+  "hl_tx_not_found",
+  "hl_tx_unconfirmed",
   "unsupported_scheme",
   "unexpected_settle_error",
   "unexpected_verify_error",
@@ -62,10 +72,11 @@ const hasMaxLength = (maxLength: number) => (value: string) => value.length <= m
 
 // x402PaymentRequirements
 const EvmOrSvmAddress = z.string().regex(EvmAddressRegex).or(z.string().regex(SvmAddressRegex));
-const mixedAddressOrSvmAddress = z
+const mixedAddressOrSvmAddressOrHlToken = z
   .string()
   .regex(MixedAddressRegex)
-  .or(z.string().regex(SvmAddressRegex));
+  .or(z.string().regex(SvmAddressRegex))
+  .or(z.string().regex(HyperliquidTokenIdRegex));
 export const PaymentRequirementsSchema = z.object({
   scheme: z.enum(schemes),
   network: NetworkSchema,
@@ -76,7 +87,7 @@ export const PaymentRequirementsSchema = z.object({
   outputSchema: z.record(z.any()).optional(),
   payTo: EvmOrSvmAddress,
   maxTimeoutSeconds: z.number().int(),
-  asset: mixedAddressOrSvmAddress,
+  asset: mixedAddressOrSvmAddressOrHlToken,
   extra: z.record(z.any()).optional(),
 });
 export type PaymentRequirements = z.infer<typeof PaymentRequirementsSchema>;
@@ -104,12 +115,27 @@ export const ExactSvmPayloadSchema = z.object({
 });
 export type ExactSvmPayload = z.infer<typeof ExactSvmPayloadSchema>;
 
+export const ExactHlPayloadSchema = z.object({
+  action: z.record(z.any()),
+  signature: z.union([
+    z.string().regex(EvmSignatureRegex),
+    z.object({
+      r: z.string().regex(EvmSignatureRegex),
+      s: z.string().regex(EvmSignatureRegex),
+      v: z.number().int(),
+    }),
+  ]),
+  nonce: z.number().int().positive(),
+  user: z.string().regex(EvmAddressRegex),
+});
+export type ExactHlPayload = z.infer<typeof ExactHlPayloadSchema>;
+
 // x402PaymentPayload
 export const PaymentPayloadSchema = z.object({
   x402Version: z.number().refine(val => x402Versions.includes(val as 1)),
   scheme: z.enum(schemes),
   network: NetworkSchema,
-  payload: z.union([ExactEvmPayloadSchema, ExactSvmPayloadSchema]),
+  payload: z.union([ExactEvmPayloadSchema, ExactSvmPayloadSchema, ExactHlPayloadSchema]),
 });
 export type PaymentPayload = z.infer<typeof PaymentPayloadSchema>;
 export type UnsignedPaymentPayload = Omit<PaymentPayload, "payload"> & {

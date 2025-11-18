@@ -1,15 +1,16 @@
 import { NextFunction, Request, Response } from "express";
 import { Address, getAddress } from "viem";
 import { Address as SolanaAddress } from "@solana/kit";
-import { exact } from "x402/schemes";
+import { exact } from "@peezy.tech/x402/schemes";
 import {
   computeRoutePatterns,
   findMatchingPaymentRequirements,
   findMatchingRoute,
   processPriceToAtomicAmount,
   toJsonSafe,
-} from "x402/shared";
-import { getPaywallHtml } from "x402/paywall";
+  hyperliquid as hyperliquidShared,
+} from "@peezy.tech/x402/shared";
+import { getPaywallHtml } from "@peezy.tech/x402/paywall";
 import {
   FacilitatorConfig,
   ERC20TokenAmount,
@@ -22,8 +23,9 @@ import {
   settleResponseHeader,
   SupportedEVMNetworks,
   SupportedSVMNetworks,
-} from "x402/types";
-import { useFacilitator } from "x402/verify";
+  SupportedHLNetworks,
+} from "@peezy.tech/x402/types";
+import { useFacilitator } from "@peezy.tech/x402/verify";
 
 /**
  * Creates a payment middleware factory for Express
@@ -107,7 +109,7 @@ export function paymentMiddleware(
       discoverable,
     } = config;
 
-    const atomicAmountForAsset = processPriceToAtomicAmount(price, network);
+    const atomicAmountForAsset = await processPriceToAtomicAmount(price, network);
     if ("error" in atomicAmountForAsset) {
       throw new Error(atomicAmountForAsset.error);
     }
@@ -188,6 +190,34 @@ export function paymentMiddleware(
           feePayer,
         },
       });
+    }
+    // hyperliquid networks
+    else if (SupportedHLNetworks.includes(network)) {
+      paymentRequirements.push({
+        scheme: "exact",
+        network,
+        maxAmountRequired,
+        resource: resourceUrl,
+        description: description ?? "",
+        mimeType: mimeType ?? "application/json",
+        payTo: getAddress(payTo),
+        maxTimeoutSeconds: maxTimeoutSeconds ?? 300,
+        asset: asset.address,
+        outputSchema: {
+          input: {
+            type: "http",
+            method: req.method.toUpperCase(),
+            discoverable: discoverable ?? true,
+            ...inputSchema,
+          },
+          output: outputSchema,
+        },
+        extra: {
+          decimals: asset.decimals,
+          tokenSymbol: (asset as any).symbol,
+          signatureChainId: hyperliquidShared.getHyperliquidSignatureChainId(network),
+        },
+      });
     } else {
       throw new Error(`Unsupported network: ${network}`);
     }
@@ -201,16 +231,8 @@ export function paymentMiddleware(
       // TODO handle paywall html for solana
       if (isWebBrowser) {
         let displayAmount: number;
-        if (typeof price === "string" || typeof price === "number") {
-          const parsed = moneySchema.safeParse(price);
-          if (parsed.success) {
-            displayAmount = parsed.data;
-          } else {
-            displayAmount = Number.NaN;
-          }
-        } else {
-          displayAmount = Number(price.amount) / 10 ** price.asset.decimals;
-        }
+        const inferredDecimals = asset.decimals ?? 6;
+        displayAmount = Number(maxAmountRequired) / 10 ** inferredDecimals;
 
         const html =
           customPaywallHtml ||
@@ -353,5 +375,5 @@ export type {
   Resource,
   RouteConfig,
   RoutesConfig,
-} from "x402/types";
+} from "@peezy.tech/x402/types";
 export type { Address as SolanaAddress } from "@solana/kit";

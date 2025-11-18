@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   computeRoutePatterns,
   findMatchingRoute,
@@ -6,6 +6,11 @@ import {
   processPriceToAtomicAmount,
 } from "./middleware";
 import type { RoutesConfig, Network } from "../types";
+import * as hyperliquidShared from "./hyperliquid";
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("computeRoutePatterns", () => {
   it("should handle simple string price routes", () => {
@@ -367,14 +372,30 @@ describe("getDefaultAsset", () => {
     });
   });
 
+  it("should return Hyperliquid default asset details", () => {
+    const result = getDefaultAsset("hyperliquid");
+    expect(result).toEqual({
+      address: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+      decimals: 6,
+    });
+  });
+
+  it("should return Hyperliquid testnet default asset details", () => {
+    const result = getDefaultAsset("hyperliquid-testnet");
+    expect(result).toEqual({
+      address: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+      decimals: 6,
+    });
+  });
+
   it("should handle unknown networks", () => {
     expect(() => getDefaultAsset("unknown" as Network)).toThrow("Unsupported network: unknown");
   });
 });
 
 describe("processPriceToAtomicAmount", () => {
-  it("should handle string price in dollars", () => {
-    const result = processPriceToAtomicAmount("$0.01", "base-sepolia");
+  it("should handle string price in dollars", async () => {
+    const result = await processPriceToAtomicAmount("$0.01", "base-sepolia");
     expect(result).toEqual({
       maxAmountRequired: "10000",
       asset: {
@@ -388,8 +409,19 @@ describe("processPriceToAtomicAmount", () => {
     });
   });
 
-  it("should handle number price in dollars", () => {
-    const result = processPriceToAtomicAmount(0.01, "base-sepolia");
+  it("should handle string price for Hyperliquid networks", async () => {
+    const result = await processPriceToAtomicAmount("$0.01", "hyperliquid");
+    expect(result).toEqual({
+      maxAmountRequired: "10000",
+      asset: {
+        address: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+        decimals: 6,
+      },
+    });
+  });
+
+  it("should handle number price in dollars", async () => {
+    const result = await processPriceToAtomicAmount(0.01, "base-sepolia");
     expect(result).toEqual({
       maxAmountRequired: "10000",
       asset: {
@@ -403,7 +435,7 @@ describe("processPriceToAtomicAmount", () => {
     });
   });
 
-  it("should handle token amount object", () => {
+  it("should handle token amount object", async () => {
     const tokenAmount = {
       amount: "1000000",
       asset: {
@@ -415,29 +447,53 @@ describe("processPriceToAtomicAmount", () => {
         },
       },
     };
-    const result = processPriceToAtomicAmount(tokenAmount, "base-sepolia");
+    const result = await processPriceToAtomicAmount(tokenAmount, "base-sepolia");
     expect(result).toEqual({
       maxAmountRequired: "1000000",
       asset: tokenAmount.asset,
     });
   });
 
-  it("should handle invalid price format", () => {
-    const result = processPriceToAtomicAmount("invalid", "base-sepolia");
+  it("should handle hyperliquid token amounts with fetched decimals", async () => {
+    vi.spyOn(hyperliquidShared, "fetchHyperliquidTokenInfo").mockResolvedValue({
+      decimals: 9,
+      symbol: "PURR",
+      name: "PURR",
+    });
+    const tokenAmount = {
+      amount: "0.5",
+      asset: {
+        tokenId: "0xc4bf3f870c0e9465323c0b6ed28096c2",
+      },
+    };
+    const result = await processPriceToAtomicAmount(tokenAmount as any, "hyperliquid-testnet");
+    expect(result).toEqual({
+      maxAmountRequired: "500000000",
+      asset: {
+        address: "PURR:0xc4bf3f870c0e9465323c0b6ed28096c2",
+        decimals: 9,
+        symbol: "PURR",
+        tokenId: tokenAmount.asset.tokenId,
+      },
+    });
+  });
+
+  it("should handle invalid price format", async () => {
+    const result = await processPriceToAtomicAmount("invalid", "base-sepolia");
     expect(result).toEqual({
       error: expect.stringContaining("Invalid price"),
     });
   });
 
-  it("should handle negative price", () => {
-    const result = processPriceToAtomicAmount("-$0.01", "base-sepolia");
+  it("should handle negative price", async () => {
+    const result = await processPriceToAtomicAmount("-$0.01", "base-sepolia");
     expect(result).toEqual({
       error: expect.stringContaining("Invalid price"),
     });
   });
 
-  it("should handle zero price", () => {
-    const result = processPriceToAtomicAmount("$0", "base-sepolia");
+  it("should handle zero price", async () => {
+    const result = await processPriceToAtomicAmount("$0", "base-sepolia");
     expect(result).toEqual({
       error: expect.stringContaining("Number must be greater than or equal to 0.0001"),
     });
