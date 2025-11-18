@@ -1,8 +1,8 @@
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import type { ReactNode } from "react";
-import { base, baseSepolia } from "viem/chains";
+import { base, baseSepolia, arbitrum } from "viem/chains";
 
-import { choosePaymentRequirement, isEvmNetwork } from "./paywallUtils";
+import { choosePaymentRequirement, isEvmNetwork, isHyperliquidNetwork } from "./paywallUtils";
 import "./window.d.ts";
 
 type ProvidersProps = {
@@ -20,11 +20,18 @@ export function Providers({ children }: ProvidersProps) {
   const { testnet = true, cdpClientKey, appName, appLogo, paymentRequirements } = window.x402;
   const selectedRequirement = choosePaymentRequirement(paymentRequirements, testnet);
 
-  if (!isEvmNetwork(selectedRequirement.network)) {
+  if (
+    !isEvmNetwork(selectedRequirement.network) &&
+    !isHyperliquidNetwork(selectedRequirement.network)
+  ) {
     return <>{children}</>;
   }
 
-  const chain = selectedRequirement.network === "base-sepolia" ? baseSepolia : base;
+  const chain = isEvmNetwork(selectedRequirement.network)
+    ? selectedRequirement.network === "base-sepolia"
+      ? baseSepolia
+      : base
+    : arbitrum;
 
   return (
     <OnchainKitProvider

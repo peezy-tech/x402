@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { POST as handleSessionToken } from "x402-next";
+import { POST as handleSessionToken } from "@peezy.tech/x402-next";
 
 export const runtime = "nodejs";
 

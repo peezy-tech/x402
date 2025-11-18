@@ -367,6 +367,22 @@ describe("getDefaultAsset", () => {
     });
   });
 
+  it("should return Hyperliquid default asset details", () => {
+    const result = getDefaultAsset("hyperliquid");
+    expect(result).toEqual({
+      address: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+      decimals: 6,
+    });
+  });
+
+  it("should return Hyperliquid testnet default asset details", () => {
+    const result = getDefaultAsset("hyperliquid-testnet");
+    expect(result).toEqual({
+      address: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+      decimals: 6,
+    });
+  });
+
   it("should handle unknown networks", () => {
     expect(() => getDefaultAsset("unknown" as Network)).toThrow("Unsupported network: unknown");
   });
@@ -384,6 +400,17 @@ describe("processPriceToAtomicAmount", () => {
           name: "USDC",
           version: "2",
         },
+      },
+    });
+  });
+
+  it("should handle string price for Hyperliquid networks", () => {
+    const result = processPriceToAtomicAmount("$0.01", "hyperliquid");
+    expect(result).toEqual({
+      maxAmountRequired: "10000",
+      asset: {
+        address: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+        decimals: 6,
       },
     });
   });

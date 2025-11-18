@@ -1,4 +1,4 @@
-import { Network, PaymentRequirements } from "../types";
+import { Network, PaymentRequirements, SupportedHLNetworks } from "../types";
 import { getUsdcChainConfigForChain } from "../shared/evm";
 import { getNetworkId } from "../shared/network";
 
@@ -25,8 +25,11 @@ export function selectPaymentRequirements(paymentRequirements: PaymentRequiremen
 
   // Filter down to USDC requirements
   const usdcRequirements = broadlyAcceptedPaymentRequirements.filter(requirement => {
-    // If the address is a USDC address, we return it.
-    return requirement.asset === getUsdcChainConfigForChain(getNetworkId(requirement.network))?.usdcAddress;
+    if (SupportedHLNetworks.includes(requirement.network)) {
+      return false;
+    }
+    const chainConfig = getUsdcChainConfigForChain(getNetworkId(requirement.network));
+    return requirement.asset === chainConfig?.usdcAddress;
   });
 
   // Prioritize USDC requirements if available
@@ -50,4 +53,3 @@ export function selectPaymentRequirements(paymentRequirements: PaymentRequiremen
  * @returns The payment requirement that is the most appropriate for the user.
  */
 export type PaymentRequirementsSelector = (paymentRequirements: PaymentRequirements[], network?: Network | Network[], scheme?: "exact") => PaymentRequirements;
-

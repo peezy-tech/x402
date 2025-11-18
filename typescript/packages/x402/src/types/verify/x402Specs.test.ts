@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { ExactHlPayloadSchema, PaymentPayloadSchema } from "./x402Specs";
 
 describe("x402Specs Regex Patterns", () => {
   // Import the regex patterns from the source file
@@ -173,5 +174,52 @@ describe("x402Specs Regex Patterns", () => {
         expect(Evm6492SignatureRegex.test(signature)).toBe(true);
       });
     });
+  });
+});
+
+describe("ExactHlPayloadSchema", () => {
+  const hlPayload = {
+    action: {
+      destination: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      token: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+      amount: "1.25",
+      time: Date.now(),
+    },
+    signature: "0x" + "f".repeat(130),
+    nonce: 123,
+  };
+
+  it("accepts a valid Hyperliquid payload", () => {
+    expect(() => ExactHlPayloadSchema.parse(hlPayload)).not.toThrow();
+  });
+
+  it("rejects an invalid Hyperliquid payload", () => {
+    expect(() =>
+      ExactHlPayloadSchema.parse({
+        ...hlPayload,
+        signature: 123,
+      }),
+    ).toThrow();
+  });
+});
+
+describe("PaymentPayloadSchema Hyperliquid variant", () => {
+  it("accepts Hyperliquid payloads", () => {
+    const payload = {
+      x402Version: 1,
+      scheme: "exact" as const,
+      network: "hyperliquid" as const,
+      payload: {
+        action: {
+          destination: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          token: "USDC:0xeb62eee3685fc4c43992febcd9e75443",
+          amount: "2.5",
+          time: Date.now(),
+        },
+        signature: "0x" + "a".repeat(130),
+        nonce: 456,
+      },
+    };
+    expect(() => PaymentPayloadSchema.parse(payload)).not.toThrow();
   });
 });

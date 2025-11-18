@@ -9,11 +9,13 @@ import {
   PaymentRequirements,
   PaymentPayload,
   SPLTokenAmount,
+  SupportedHLNetworks,
 } from "../types";
 import { RoutesConfig } from "../types";
 import { safeBase64Decode } from "./base64";
 import { getUsdcChainConfigForChain } from "./evm";
 import { getNetworkId } from "./network";
+import { getDefaultHyperliquidAsset } from "./hyperliquid";
 
 /**
  * Computes the route patterns for the given routes config
@@ -121,7 +123,12 @@ export function findMatchingRoute(
  * @param network - The network to get the default asset for
  * @returns The default asset
  */
-export function getDefaultAsset(network: Network) {
+export function getDefaultAsset(
+  network: Network,
+): ERC20TokenAmount["asset"] | SPLTokenAmount["asset"] {
+  if (SupportedHLNetworks.includes(network)) {
+    return getDefaultHyperliquidAsset(network);
+  }
   const chainId = getNetworkId(network);
   const usdc = getUsdcChainConfigForChain(chainId);
   if (!usdc) {

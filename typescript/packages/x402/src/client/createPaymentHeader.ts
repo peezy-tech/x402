@@ -1,6 +1,16 @@
 import { createPaymentHeader as createPaymentHeaderExactEVM } from "../schemes/exact/evm/client";
 import { createPaymentHeader as createPaymentHeaderExactSVM } from "../schemes/exact/svm/client";
-import { isEvmSignerWallet, isMultiNetworkSigner, isSvmSignerWallet, MultiNetworkSigner, Signer, SupportedEVMNetworks, SupportedSVMNetworks } from "../types/shared";
+import { createPaymentHeader as createPaymentHeaderExactHL } from "../schemes/exact/hyperliquid/client";
+import {
+  isEvmSignerWallet,
+  isMultiNetworkSigner,
+  isSvmSignerWallet,
+  MultiNetworkSigner,
+  Signer,
+  SupportedEVMNetworks,
+  SupportedSVMNetworks,
+  SupportedHLNetworks,
+} from "../types/shared";
 import { PaymentRequirements } from "../types/verify";
 import { X402Config } from "../types/config";
 
@@ -49,6 +59,20 @@ export async function createPaymentHeader(
         config,
       );
     }
+    if (SupportedHLNetworks.includes(paymentRequirements.network)) {
+      const hyperliquidClient = isMultiNetworkSigner(client) ? client.evm : client;
+
+      if (!isEvmSignerWallet(hyperliquidClient as Signer)) {
+        throw new Error("Invalid hyperliquid wallet client provided");
+      }
+
+      return await createPaymentHeaderExactHL(
+        hyperliquidClient as Parameters<typeof createPaymentHeaderExactHL>[0],
+        x402Version,
+        paymentRequirements,
+      );
+    }
+
     throw new Error("Unsupported network");
   }
   throw new Error("Unsupported scheme");

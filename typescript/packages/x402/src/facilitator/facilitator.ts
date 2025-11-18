@@ -1,6 +1,7 @@
 import { verify as verifyExactEvm, settle as settleExactEvm } from "../schemes/exact/evm";
 import { verify as verifyExactSvm, settle as settleExactSvm } from "../schemes/exact/svm";
-import { SupportedEVMNetworks, SupportedSVMNetworks } from "../types/shared";
+import { verify as verifyExactHl, settle as settleExactHl } from "../schemes/exact/hyperliquid/facilitator";
+import { SupportedEVMNetworks, SupportedSVMNetworks, SupportedHLNetworks } from "../types/shared";
 import { X402Config } from "../types/config";
 import {
   ConnectedClient as EvmConnectedClient,
@@ -57,6 +58,10 @@ export async function verify<
         config,
       );
     }
+
+    if (SupportedHLNetworks.includes(paymentRequirements.network)) {
+      return await verifyExactHl(client, payload, paymentRequirements, config);
+    }
   }
 
   // unsupported scheme
@@ -104,6 +109,10 @@ export async function settle<transport extends Transport, chain extends Chain>(
         paymentRequirements,
         config,
       );
+    }
+
+    if (SupportedHLNetworks.includes(paymentRequirements.network)) {
+      return await settleExactHl(client, payload, paymentRequirements, config);
     }
   }
 
